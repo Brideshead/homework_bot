@@ -87,9 +87,7 @@ def send_message(bot: telegram.bot.Bot, message: str) -> None:
         logging.exception(
             f'Сообщение в Telegram не отправлено: {telegram_error}',
         )
-    logger.debug(
-            f'Сообщение в Telegram отправлено: {message}',
-    )
+    logger.debug(f'Сообщение в Telegram отправлено: {message}')
 
 
 def get_api_answer(timestamp: int) -> Dict[str, List[str]]:
@@ -145,7 +143,7 @@ def check_response(response: Dict[str, List[str]]) -> List[str]:
     else:
         raise TypeError(
             'Ошибка API при проверке response, проверьте данные.',
-            )
+        )
 
 
 def parse_status(homework: Dict[str, str]) -> str:
@@ -170,13 +168,13 @@ def parse_status(homework: Dict[str, str]) -> str:
     except KeyError:
         raise KeyError(
             'Ошибка ключа при запросе названия и статуса домашней работы',
-            )
+        )
     try:
         verdict = HOMEWORK_VERDICTS[status]
     except KeyError:
         raise KeyError(
-                'Ошибка ключа при запросе статуса работы: ', verdict,
-                )
+            f'Ошибка ключа при запросе статуса работы: {verdict}',
+        )
     return f'Изменился статус проверки работы "{name}": {verdict}'
 
 
