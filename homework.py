@@ -8,6 +8,8 @@ from typing import Dict, List
 import requests
 import telegram
 from dotenv import load_dotenv
+from exceptions import (RequestExceptionError, SendmessageError,
+                        TheAnswerIsNot200Error, TokenError)
 
 load_dotenv()
 
@@ -35,18 +37,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class RequestExceptionError(Exception):
-    """Ошибка запроса."""
-
-
-class TheAnswerIsNot200Error(Exception):
-    """Ответ сервера не 200."""
-
-
-class TokenError(Exception):
-    """Отсутсвует один или более токен."""
-
-
 def check_tokens() -> bool:
     """Проверяем наличия токена.
 
@@ -55,14 +45,13 @@ def check_tokens() -> bool:
     свою работу.
 
     Возвращает:
-    True если проверка пройдена или TokenError, если что-то отсутсвует.
+        True если проверка пройдена или TokenError, если что-то отсутсвует.
     """
     list_tokens = []
     for name in ['PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID']:
-        print(globals())
-        if globals()[name] is None:
+        if globals().get(name) is None:
             list_tokens.append(name)
-    if len(list_tokens) == 0:
+    if not list_tokens:
         return True
     else:
         api_answer = 'Отстутствует одна или несколько переменных окружения'
@@ -77,16 +66,19 @@ def send_message(bot: telegram.bot.Bot, message: str) -> None:
     В случае неудачи логируем в журнал запись об ошибке.
 
     Параметры:
-    bot: экземпляр класса Bot.
-    message: строка сообщения с текстом.
+        bot: экземпляр класса Bot.
+        message: строка сообщения с текстом.
     """
-    logger.info(f'Вызываем функцию send_message c аргументами {bot, message}')
+    logger.info(
+        f'Вызываем функцию send_message c аргументами {bot} и {message}',
+    )
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
     except telegram.error.TelegramError as telegram_error:
         logging.exception(
             f'Сообщение в Telegram не отправлено: {telegram_error}',
         )
+        raise SendmessageError
     logger.debug(f'Сообщение в Telegram отправлено: {message}')
 
 
@@ -96,11 +88,11 @@ def get_api_answer(timestamp: int) -> Dict[str, List[str]]:
     Делает запрос к единственному эндпойнту на предмет доступности.
 
     Параметры:
-    timestamp: временная метка запроса.
+        timestamp: временная метка запроса.
 
     Возвращает:
-    В случае успешного запроса возвращает ответ API в формате JSON.
-    В случае неудачи выводится ошибка и осуществляется запись в лог.
+        В случае успешного запроса возвращает ответ API в формате JSON.
+        В случае неудачи выводится ошибка и осуществляется запись в лог.
     """
     logger.info(f'Вызываем функцию get_api_answer c аргументами {timestamp}')
     try:
@@ -127,23 +119,23 @@ def check_response(response: Dict[str, List[str]]) -> List[str]:
     Соответствует ли ответ API документации.
 
     Параметры:
-    response: ответ API, приведенный к типам данных Python.
+        response: ответ API, приведенный к типам данных Python.
 
     Возвращает:
-    В случае успеха список с информацией о всех выполненных домашних работах
-    и той , которая находятся в работе.
-    В случае неудачи обработки запроса выводится ошибка с просьбой
-    проверить переменные окружения.
+        В случае успеха список с информацией о всех выполненных домашних
+        работах и той , которая находятся в работе.
+        В случае неудачи обработки запроса выводится ошибка с просьбой
+        проверить переменные окружения.
     """
     logger.info(f'Вызываем функцию check_response c аргументами {response}')
     if isinstance(response, dict) and all(
         key for key in ('current_date', 'homeworks')
     ) and isinstance(response.get('homeworks'), list):
         return response.get('homeworks')
-    else:
-        raise TypeError(
-            'Ошибка API при проверке response, проверьте данные.',
-        )
+
+    raise TypeError(
+        'Ошибка API при проверке response, проверьте данные.',
+    )
 
 
 def parse_status(homework: Dict[str, str]) -> str:
@@ -152,15 +144,15 @@ def parse_status(homework: Dict[str, str]) -> str:
     Извлекает статус о конкретной домашней работе.
 
     Параметры:
-    homework: список с информацией о всех выполненных домашних работах
-    и той , которая находятся в работе.
+        homework: список с информацией о всех выполненных домашних работах
+        и той , которая находятся в работе.
 
     Возвращает:
-    В случае если статус работы изменился , выводит сообщение об
-    изменении статуса работы.
-    В случае неудачи есть несколько сценариев выводимых ошибок в зависимости
-    от причины сбоя - соответствие значений по указываему ключу или
-    если статуса нет в словаре вердиктов.
+        В случае если статус работы изменился , выводит сообщение об
+        изменении статуса работы.
+        В случае неудачи есть несколько сценариев выводимых ошибок в
+        зависимости от причины сбоя - соответствие значений
+        по указываему ключу или если статуса нет в словаре вердиктов.
     """
     logger.info(f'Вызываем функцию parse_status c аргументами {homework}')
     try:
